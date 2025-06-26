@@ -1,38 +1,18 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-export default withAuth(
-  function middleware() {
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-        authorized({req, token}){
-            const {pathname} = req.nextUrl
+const isPublicRoute = createRouteMatcher(['/sign-in(.*)'])
 
-            if(
-                pathname.startsWith("/api/auth") ||
-                pathname === "/login" ||
-                pathname === "/register"
-            ) return true;
-
-            if(pathname === '/' || pathname.startsWith("/api/videos")) return true;
-
-            return !!token;
-        }
-    },
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect()
   }
-);
+})
 
 export const config = {
   matcher: [
-    /*
-        Match all request path except:
-        - _next/static (static files)
-        - _next/image (image optimization files)
-        - _favicon.ico (favicon file)
-        - _ public folder
-        */
-    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
   ],
-};
+}
